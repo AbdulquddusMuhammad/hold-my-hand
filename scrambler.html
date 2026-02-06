@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WordWise - Gamified Reading</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      .confetti {
+        position: fixed;
+        top: 0;
+        left: 0;
+      }
+
+      body {
+        font-family: "Fredoka", sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+
+      .bg-pattern {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0.05;
+        background-image: repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255, 255, 255, 0.1) 35px, rgba(255, 255, 255, 0.1) 70px);
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .content-wrapper {
+        position: relative;
+        z-index: 1;
+      }
+
+      .word-button {
+        transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        cursor: pointer;
+        transform: scale(1);
+      }
+
+      .word-button:hover {
+        transform: scale(1.08) rotate(-2deg);
+      }
+
+      .word-button:active {
+        transform: scale(0.95);
+      }
+
+      .word-button.correct {
+        animation: correctPop 0.5s ease-out;
+      }
+
+      .word-button.incorrect {
+        animation: incorrectShake 0.5s ease-out;
+      }
+
+      @keyframes correctPop {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.2) rotate(5deg);
+        }
+      }
+
+      @keyframes incorrectShake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        25% {
+          transform: translateX(-10px);
+        }
+        75% {
+          transform: translateX(10px);
+        }
+      }
+
+      .slide-in {
+        animation: slideIn 0.6s ease-out;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .progress-bar {
+        transition: width 0.5s ease-out;
+      }
+
+      .completion-banner {
+        animation: celebrationBounce 0.8s ease-out;
+      }
+
+      @keyframes celebrationBounce {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        25% {
+          transform: translateY(-20px);
+        }
+        50% {
+          transform: translateY(-10px);
+        }
+        75% {
+          transform: translateY(-15px);
+        }
+      }
+
+      .score-badge {
+        font-family: "Space Mono", monospace;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.05);
+        }
+      }
+
+      .constructed-word {
+        animation: wordAppear 0.3s ease-out;
+      }
+
+      @keyframes wordAppear {
+        from {
+          opacity: 0;
+          transform: scale(0.8) translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+      }
+
+      .glow {
+        box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+      }
+
+      .confetti {
+        position: fixed;
+        width: 10px;
+        height: 10px;
+        background-color: #f0f;
+        position: absolute;
+        animation: confetti-fall 3s linear infinite;
+      }
+
+      @keyframes confetti-fall {
+        to {
+          transform: translateY(100vh) rotate(360deg);
+          opacity: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bg-pattern"></div>
+
+    <div class="content-wrapper min-h-screen py-8 px-4">
+      <div class="max-w-5xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8 slide-in">
+          <h1 class="text-5xl md:text-6xl font-bold text-white mb-3" style="text-shadow: 3px 3px 0 rgba(0, 0, 0, 0.2)">🎯 WordWise</h1>
+          <p class="text-xl text-purple-100 font-medium">Reconstruct sentences, master reading!</p>
+        </div>
+
+        <!-- Topic Selection -->
+        <div id="topicSelection" class="mb-8">
+          <div class="bg-white rounded-3xl shadow-2xl p-8 slide-in">
+            <h2 class="text-3xl font-bold text-purple-700 mb-6 text-center">Choose Your Topic</h2>
+            <div id="topicButtons" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+              <!-- Topics will be dynamically generated -->
+            </div>
+
+            <!-- Difficulty Selection -->
+            <div class="border-t-4 border-purple-200 pt-8">
+              <h3 class="text-2xl font-bold text-purple-700 mb-4 text-center">Choose Difficulty</h3>
+              <p class="text-gray-600 text-center mb-6">How many words do you want to pick at once?</p>
+              <div id="difficultyButtons" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
+                <!-- Difficulty buttons will be generated -->
+              </div>
+              <div class="mt-6 text-center">
+                <div class="inline-block bg-gradient-to-r from-purple-100 to-pink-100 px-6 py-4 rounded-2xl">
+                  <p class="text-sm text-gray-700 font-semibold mb-2">Selected: <span id="selectedDifficultyDisplay" class="text-purple-700 text-xl">1 word</span></p>
+                  <p class="text-xs text-gray-500">💡 More words = Harder challenge!</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Game Area -->
+        <div id="gameArea" class="hidden">
+          <!-- Stats Bar -->
+          <div class="bg-white rounded-3xl shadow-2xl p-6 mb-6 slide-in">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+              <div class="flex items-center gap-4">
+                <div class="score-badge text-white px-6 py-3 rounded-full font-bold text-lg">Score: <span id="score">0</span></div>
+                <div class="bg-yellow-400 text-yellow-900 px-6 py-3 rounded-full font-bold text-lg">⭐ Streak: <span id="streak">0</span></div>
+              </div>
+              <button id="backButton" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-full font-bold transition">← Back to Topics</button>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="mt-6">
+              <div class="flex justify-between text-sm text-gray-600 mb-2">
+                <span>Progress</span>
+                <span><span id="currentSentence">1</span> / <span id="totalSentences">0</span></span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                <div id="progressBar" class="progress-bar bg-gradient-to-r from-green-400 to-blue-500 h-full rounded-full" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Current Topic Title -->
+          <div class="bg-gradient-to-r from-purple-500 to-pink-500 rounded-3xl shadow-2xl p-6 mb-6 slide-in">
+            <h2 id="currentHeading" class="text-2xl font-bold text-white text-center"></h2>
+          </div>
+
+          <!-- Constructed Sentence Area -->
+          <div class="bg-white rounded-3xl shadow-2xl p-8 mb-6 min-h-[150px]">
+            <h3 class="text-xl font-bold text-gray-700 mb-4">Build the sentence:</h3>
+            <div id="constructedSentence" class="flex flex-wrap gap-3 min-h-[80px] p-4 bg-gray-50 rounded-2xl border-4 border-dashed border-gray-300">
+              <p class="text-gray-400 italic w-full text-center">Select words in order...</p>
+            </div>
+          </div>
+
+          <!-- Scrambled Words Area -->
+          <div class="bg-white rounded-3xl shadow-2xl p-8">
+            <h3 class="text-xl font-bold text-gray-700 mb-4">Available word chunks:</h3>
+            <div id="scrambledWords" class="flex flex-wrap gap-3 justify-center">
+              <!-- Scrambled words will appear here -->
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex gap-4 mt-6 justify-center">
+            <button id="resetButton" class="bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-full font-bold text-lg shadow-lg transition">🔄 Reset Sentence</button>
+            <button id="checkButton" class="bg-green-500 hover:bg-green-600 text-white px-8 py-4 rounded-full font-bold text-lg shadow-lg transition glow">✓ Check Answer</button>
+          </div>
+        </div>
+
+        <!-- Completion Screen -->
+        <div id="completionScreen" class="hidden">
+          <div class="bg-white rounded-3xl shadow-2xl p-12 text-center completion-banner">
+            <div class="text-8xl mb-6">🎉</div>
+            <h2 class="text-5xl font-bold text-purple-700 mb-4">Congratulations!</h2>
+            <p class="text-2xl text-gray-600 mb-8">You've completed all sentences!</p>
+            <div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl p-8 mb-8">
+              <p class="text-xl mb-2">Final Score</p>
+              <p class="text-6xl font-bold" id="finalScore">0</p>
+            </div>
+            <button id="restartButton" class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-12 py-5 rounded-full font-bold text-2xl shadow-2xl transition">🎮 Play Again</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Game Data
+      const contents = [
+        {
+          heading: "1. Introduction >>>> Meaning of intercropping. Importance in crop production.",
+          content:
+            "Intercropping is a cropping system in which two or more different crops are grown simultaneously on the same piece of land during the same growing season, with a definite spatial arrangement. The crops may be planted in rows, strips, or mixed patterns, but they share the same field and overlap for a significant part of their growth period. The main objective of intercropping is to make efficient use of available resources such as land, light, water, nutrients, and labor by allowing different crops to complement each other rather than compete directly.The importance of intercropping in crop production is wide-ranging. It helps to increase total productivity per unit area compared to sole cropping, as more than one crop is harvested from the same field. Intercropping improves resource utilization because crops with different rooting depths, nutrient requirements, and growth habits can exploit soil and environmental resources more effectively. For example, deep-rooted crops can access nutrients and water from lower soil layers, while shallow-rooted crops use the upper layers.Intercropping also contributes to better soil fertility and sustainability, especially when legumes are included. Leguminous intercrops fix atmospheric nitrogen through symbiotic bacteria, thereby enriching the soil and reducing the need for inorganic fertilizers. In addition, intercropping helps in weed suppression, pest and disease reduction, and erosion control by providing better ground cover and breaking pest life cycles.From an economic perspective, intercropping reduces the risk of total crop failure, as the failure of one crop may be compensated by the yield of another. This makes it particularly important for small-scale and resource-poor farmers. Overall, intercropping is an important agronomic practice that enhances productivity, stability, and sustainability in crop production systems.",
+        },
+        {
+          heading: "2. Principles of Intercropping >>>> Efficient use of nutrients, water, and light. Crop compatibility.",
+          content:
+            "The principles of intercropping are based on maximizing the efficient use of available growth resources while minimizing competition between component crops. One major principle is the efficient use of nutrients, water, and light. In a well-designed intercropping system, crops are selected so that their nutrient requirements, rooting patterns, and growth periods differ. Deep-rooted crops can absorb water and nutrients from deeper soil layers, while shallow-rooted crops utilize the upper layers. This reduces direct competition and ensures more complete exploitation of soil nutrients and moisture. Similarly, crops with different nutrient demands can coexist, leading to better overall nutrient use efficiency and reduced nutrient losses.Efficient use of light is another key principle. Intercropping systems often combine crops of varying heights, canopy structures, and growth durations. Taller crops intercept light at higher levels, while shorter or shade-tolerant crops utilize the filtered light beneath the canopy. This vertical stratification of the crop canopy allows better light interception throughout the growing period, resulting in higher total photosynthesis and productivity compared to monocropping.Crop compatibility is also a fundamental principle of intercropping. Compatible crops are those that can grow together without severe competition and with minimal negative effects on each other. Compatibility depends on factors such as growth habit, maturity period, nutrient requirement, root system, and susceptibility to pests and diseases. For example, combining a cereal crop with a legume is often compatible because cereals are heavy nitrogen feeders, while legumes can fix atmospheric nitrogen, benefiting the associated crop.Proper crop compatibility helps in reducing pest and disease incidence, improving yield stability, and ensuring efficient management practices such as planting, weeding, and harvesting. When these principles are carefully applied, intercropping becomes a productive and sustainable cropping system that enhances both resource use efficiency and crop performance.",
+        },
+        {
+          heading: "3. Types of Intercropping >>>> Mixed intercropping. Row intercropping. Strip intercropping. Relay intercropping.",
+          content:
+            "Intercropping can be classified into different types based on the spatial and temporal arrangement of the component crops. The major types include mixed intercropping, row intercropping, strip intercropping, and relay intercropping.Mixed intercropping is a system in which two or more crops are grown together on the same land without any distinct row arrangement. Seeds of different crops are mixed and sown together, and the crops grow simultaneously throughout most of their growth period. This type of intercropping is common in traditional farming systems, especially in areas with limited resources. Although mixed intercropping provides good ground cover and risk reduction, it is difficult to manage because operations such as weeding, fertilizer application, and harvesting cannot be done crop-wise.Row intercropping involves growing two or more crops simultaneously in distinct rows on the same field. Each crop is planted in separate rows, often in a fixed row ratio such as 1:1 or 2:1. This arrangement allows better management practices, including fertilizer application, intercultural operations, and harvesting. Row intercropping also reduces competition between crops and improves resource use efficiency. An example is maize intercropped with cowpea or sorghum intercropped with soybean.Strip intercropping is the practice of growing two or more crops in strips wide enough to permit independent cultivation but close enough for the crops to interact agronomically. Each strip may contain several rows of a single crop. This system is commonly used in mechanized farming and is effective in controlling soil erosion, improving land use efficiency, and reducing pest and disease spread. An example is alternating strips of maize and legumes.Relay intercropping is a system in which a second crop is sown into an existing crop before the first crop is harvested. The crops overlap for part of their growth cycle but do not compete for the entire season. This system makes efficient use of residual soil moisture, nutrients, and time. An example is sowing cowpea or chickpea into standing maize or rice before harvest. Relay intercropping increases cropping intensity and overall farm productivity.",
+        },
+        {
+          heading: "4. Intercropping Systems Commonly Used >>>> Cereal–legume systems. Legume-based intercropping.",
+          content:
+            "Several intercropping systems are commonly practiced in crop production, depending on agro-ecological conditions, crop adaptability, and farmer objectives. Among these, cereal–legume systems and legume-based intercropping are the most widely used due to their agronomic and economic advantages.Cereal–legume intercropping systems involve growing a cereal crop together with a legume crop on the same field. This system is popular because cereals are generally heavy feeders of nitrogen, while legumes have the ability to fix atmospheric nitrogen through symbiotic association with _Rhizobium_ bacteria. As a result, the legume component improves soil nitrogen availability, which can benefit the cereal crop either directly during growth or indirectly in subsequent seasons. Common examples include maize–cowpea, maize–soybean, sorghum–groundnut, millet–cowpea, and rice–green gram systems. These combinations improve total yield per unit area, enhance soil fertility, reduce the need for nitrogen fertilizers, and lower the risk of crop failure. Cereal–legume systems also contribute to better weed suppression and pest management due to crop diversity.Legume-based intercropping systems place legumes as the main crop, with cereals or other crops grown as intercrops. This system is particularly important in maintaining soil fertility and sustainability. Legumes such as groundnut, soybean, cowpea, pigeon pea, and chickpea are often intercropped with short-duration cereals or oilseeds. Legume-based intercropping improves soil structure, increases organic matter content, and enhances nutrient cycling. It also provides farmers with multiple products such as grains, fodder, and sometimes fuelwood, thereby increasing farm income and resilience.Overall, these intercropping systems are widely adopted because they promote efficient resource use, improve soil health, stabilize yields, and support sustainable crop production, especially in rain-fed and smallholder farming systems.",
+        },
+        {
+          heading: "5. Effects of Intercropping on Soil Fertility >>>> Nitrogen fixation. Improved nutrient availability. Increased soil organic matter.",
+          content:
+            "Intercropping has significant positive effects on soil fertility, particularly when legumes are included in the cropping system. It improves the physical, chemical, and biological properties of the soil, thereby supporting sustainable crop production.Nitrogen fixation is one of the most important contributions of intercropping to soil fertility. In systems that include leguminous crops, atmospheric nitrogen is fixed through a symbiotic relationship between legume roots and _Rhizobium_ bacteria. This process converts nitrogen from the air into forms that plants can use. Part of the fixed nitrogen is utilized by the legume itself, while some becomes available to the associated non-legume crop through root exudates, leaf fall, or after decomposition of crop residues. This reduces dependence on inorganic nitrogen fertilizers and enhances soil nitrogen status.Intercropping also leads to improved nutrient availability in the soil. Different crops have varying nutrient requirements and rooting depths, which allows them to access nutrients from different soil layers. Deep-rooted crops can bring nutrients from lower layers to the surface, while shallow-rooted crops utilize nutrients from the topsoil. This complementary nutrient uptake reduces nutrient depletion and improves overall nutrient use efficiency. Additionally, diverse root systems stimulate soil microbial activity, which enhances nutrient mineralization and availability.Increased soil organic matter is another important effect of intercropping. The presence of multiple crops results in greater biomass production, including roots and crop residues. When these residues decompose, they add organic matter to the soil. Higher soil organic matter improves soil structure, water-holding capacity, cation exchange capacity, and microbial activity. Over time, this leads to improved soil fertility, better crop growth, and increased sustainability of the cropping system.In summary, intercropping enhances soil fertility by increasing nitrogen input through biological fixation, improving nutrient availability, and building up soil organic matter, making it a valuable practice in sustainable agronomic management.",
+        },
+        {
+          heading: "6. Effects on Soil Properties >>>> Soil structure improvement. Reduced erosion. Better moisture retention.",
+          content:
+            "Intercropping has beneficial effects on soil physical properties, which play a crucial role in sustainable crop production. By maintaining continuous soil cover and promoting diverse root activity, intercropping improves soil structure, reduces erosion, and enhances soil moisture retention.Soil structure improvement is one of the major effects of intercropping. Different crops grown together develop varied root systems that penetrate and bind soil particles at different depths. This leads to better soil aggregation and the formation of stable soil crumbs. Improved soil structure enhances aeration, root penetration, and water infiltration. In addition, increased organic matter from crop residues and root decay further strengthens soil structure and supports beneficial soil organisms.Intercropping significantly reduces soil erosion caused by wind and water. The presence of multiple crops provides better ground cover, which protects the soil surface from the direct impact of raindrops and strong winds. Crop canopies reduce the speed of surface runoff, while root systems help hold the soil in place. This is especially important on sloping lands and in areas prone to heavy rainfall, where erosion can lead to severe loss of fertile topsoil.Better moisture retention is another important benefit of intercropping. Improved soil structure and higher organic matter content increase the soil’s ability to retain water. The shading effect of crop canopies reduces evaporation from the soil surface, while efficient root distribution allows better utilization of available moisture. As a result, intercropping systems are more resilient to dry conditions and perform better under rain-fed agriculture.Overall, intercropping enhances soil physical properties by improving soil structure, minimizing erosion, and increasing moisture retention, thereby supporting long-term soil health and crop productivity.",
+        },
+        {
+          heading: "7. Soil Biological Effects >>>> Increased microbial activity. Improved soil biodiversity.",
+          content:
+            "Intercropping has positive effects on the biological properties of soil, which are essential for nutrient cycling, soil fertility, and overall soil health. The presence of different crops in the same field creates a favorable environment for soil organisms.Increased microbial activity is a major biological effect of intercropping. Different crops release varied root exudates such as sugars, amino acids, and organic acids into the soil. These substances serve as energy sources for soil microorganisms, including bacteria, fungi, and actinomycetes. Higher microbial activity enhances the decomposition of organic residues and accelerates nutrient mineralization, making nutrients more readily available to plants. In legume-based intercropping systems, symbiotic microorganisms such as _Rhizobium_ and mycorrhizal fungi are particularly active, further improving nitrogen fixation and nutrient uptake.Intercropping also leads to improved soil biodiversity. Growing multiple crops together supports a wider range of soil organisms compared to monocropping. This includes beneficial microbes, earthworms, insects, and other soil fauna. Greater biodiversity improves soil resilience by stabilizing ecosystem functions such as nutrient cycling, disease suppression, and organic matter decomposition. Diverse soil biological communities help reduce the buildup of soil-borne pests and pathogens by disrupting their life cycles.Overall, intercropping enhances soil biological health by stimulating microbial activity and increasing soil biodiversity, which contributes to improved soil fertility, crop performance, and long-term sustainability of agricultural systems.",
+        },
+        {
+          heading: "8. Advantages of Intercropping to Soil Fertility >>>> Reduced fertilizer use. Sustainable soil management.",
+          content:
+            "Intercropping offers several advantages for maintaining and improving soil fertility, making it an important practice for sustainable agriculture.One major advantage is the reduced need for chemical fertilizers. When legumes are included in intercropping systems, they fix atmospheric nitrogen through their symbiotic relationship with _Rhizobium_ bacteria. This natural nitrogen enrichment reduces the requirement for synthetic nitrogen fertilizers for both the legume and associated crops. Additionally, different crops utilize nutrients from different soil layers, minimizing nutrient wastage and improving overall nutrient use efficiency. This reduces input costs for farmers while maintaining or increasing crop yields.Another advantage is the promotion of sustainable soil management. Intercropping improves soil structure, increases organic matter through crop residues, and enhances microbial activity. These factors contribute to long-term soil fertility and health. By preventing soil degradation, erosion, and nutrient depletion, intercropping helps maintain productive soils over multiple cropping seasons. Sustainable soil management through intercropping supports continuous crop production without the over-reliance on external inputs, preserving soil resources for future generations.In summary, intercropping reduces fertilizer dependency and promotes sustainable management of soil resources, leading to healthier soils, higher productivity, and long-term agricultural sustainability.",
+        },
+        {
+          heading: "9. Constraints of Intercropping >>>> Competition between crops. Management challenges.",
+          content:
+            "Intercropping, despite its many benefits, also presents certain constraints that can limit its efficiency and adoption if not carefully managed.One major constraint is competition between crops. When two or more crops are grown together, they may compete for essential resources such as light, water, and nutrients. If the component crops are poorly matched in growth habit, rooting depth, or nutrient requirements, this competition can reduce the yield of one or both crops. For example, a fast-growing, tall crop may shade a shorter, slower-growing crop, limiting its photosynthesis and overall productivity. Similarly, crops with overlapping nutrient demands may deplete soil resources quickly, leading to reduced growth.Management challenges are another significant constraint of intercropping. Mixed or complex intercropping systems make farm operations such as planting, weeding, fertilizer application, irrigation, and harvesting more difficult compared to monocropping. Labor requirements may increase, and mechanization is often limited, especially in smallholder farms. Pest and disease management can also be more complicated because different crops may have different susceptibilities, and monitoring multiple crops simultaneously is more labor-intensive.In addition, market constraints can affect intercropping adoption, as farmers may need to sell multiple crops separately, requiring access to multiple markets. Overall, while intercropping improves resource use and soil fertility, careful crop selection, planning, and management are essential to minimize competition and overcome operational challenges.",
+        },
+        {
+          heading: "10. Conclusion >>>> Summary of intercropping benefits to soil fertility.",
+          content:
+            "In conclusion, intercropping is an effective cropping system that provides multiple benefits to soil fertility and overall agricultural sustainability. By growing two or more compatible crops together, intercropping improves nitrogen availability through legume fixation, enhances nutrient use efficiency, and increases soil organic matter. It also improves soil physical properties by enhancing structure, reducing erosion, and increasing moisture retention.Biologically, intercropping stimulates microbial activity and promotes greater soil biodiversity, supporting nutrient cycling and disease suppression. These effects reduce the need for chemical fertilizers and contribute to sustainable soil management. Despite some challenges such as crop competition and increased management requirements, the overall advantages of intercropping—higher productivity, improved soil health, and long-term sustainability—make it a valuable practice for farmers seeking to maintain fertile, resilient soils.",
+        },
+      ];
+
+      // Game State
+      let currentTopicIndex = 0;
+      let currentSentences = [];
+      let currentSentenceIndex = 0;
+      let selectedWords = [];
+      let score = 0;
+      let streak = 0;
+      let scrambledWordsArray = [];
+      let wordsPerPick = 1; // Default difficulty
+
+      // DOM Elements
+      const topicSelection = document.getElementById("topicSelection");
+      const gameArea = document.getElementById("gameArea");
+      const completionScreen = document.getElementById("completionScreen");
+      const topicButtons = document.getElementById("topicButtons");
+      const difficultyButtons = document.getElementById("difficultyButtons");
+      const selectedDifficultyDisplay = document.getElementById("selectedDifficultyDisplay");
+      const currentHeading = document.getElementById("currentHeading");
+      const constructedSentence = document.getElementById("constructedSentence");
+      const scrambledWords = document.getElementById("scrambledWords");
+      const scoreDisplay = document.getElementById("score");
+      const streakDisplay = document.getElementById("streak");
+      const currentSentenceDisplay = document.getElementById("currentSentence");
+      const totalSentencesDisplay = document.getElementById("totalSentences");
+      const progressBar = document.getElementById("progressBar");
+      const resetButton = document.getElementById("resetButton");
+      const checkButton = document.getElementById("checkButton");
+      const backButton = document.getElementById("backButton");
+      const restartButton = document.getElementById("restartButton");
+      const finalScore = document.getElementById("finalScore");
+
+      // Initialize Topics
+      function initializeTopics() {
+        topicButtons.innerHTML = "";
+        contents.forEach((topic, index) => {
+          const button = document.createElement("button");
+          button.className = "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white p-6 rounded-2xl font-bold text-lg shadow-lg transition transform hover:scale-105";
+          button.innerHTML = `
+                          <div class="text-left">
+                              <div class="text-2xl mb-2">${index === 0 ? "🌱" : "💡"}</div>
+                              <div>${topic.heading}</div>
+                          </div>
+                      `;
+          button.onclick = () => startTopic(index);
+          topicButtons.appendChild(button);
+        });
+      }
+
+      // Initialize Difficulty Buttons
+      function initializeDifficultyButtons() {
+        difficultyButtons.innerHTML = "";
+        for (let i = 1; i <= 7; i++) {
+          const button = document.createElement("button");
+          button.className = i === 1 ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-4 rounded-xl font-bold text-lg shadow-lg transition transform hover:scale-105 border-4 border-green-300" : "bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 text-white px-6 py-4 rounded-xl font-bold text-lg shadow-lg transition transform hover:scale-105";
+          button.innerHTML = `
+                          <div class="text-2xl mb-1">${i === 1 ? "😊" : i === 7 ? "🔥" : "⚡"}</div>
+                          <div>${i}</div>
+                      `;
+          button.onclick = () => selectDifficulty(i);
+          button.id = `difficulty-${i}`;
+          difficultyButtons.appendChild(button);
+        }
+      }
+
+      // Select Difficulty
+      function selectDifficulty(level) {
+        wordsPerPick = level;
+
+        // Update button styles
+        for (let i = 1; i <= 7; i++) {
+          const btn = document.getElementById(`difficulty-${i}`);
+          if (i === level) {
+            btn.className = "bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-4 rounded-xl font-bold text-lg shadow-lg transition transform scale-105 border-4 border-green-300";
+          } else {
+            btn.className = "bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 text-white px-6 py-4 rounded-xl font-bold text-lg shadow-lg transition transform hover:scale-105";
+          }
+        }
+
+        // Update display
+        selectedDifficultyDisplay.textContent = level === 1 ? "1 word" : `${level} words`;
+      }
+
+      // Split content into sentences
+      function splitIntoSentences(content) {
+        return content
+          .split(".")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+          .map((s) => s + ".");
+      }
+
+      // Scramble array
+      function scrambleArray(array) {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
+      }
+
+      // Start a topic
+      function startTopic(topicIndex) {
+        currentTopicIndex = topicIndex;
+        currentSentences = splitIntoSentences(contents[topicIndex].content);
+        currentSentenceIndex = 0;
+        score = 0;
+        streak = 0;
+
+        topicSelection.classList.add("hidden");
+        gameArea.classList.remove("hidden");
+        completionScreen.classList.add("hidden");
+
+        currentHeading.textContent = contents[topicIndex].heading;
+        totalSentencesDisplay.textContent = currentSentences.length;
+
+        updateScore();
+        loadSentence();
+      }
+
+      // Load current sentence
+      function loadSentence() {
+        if (currentSentenceIndex >= currentSentences.length) {
+          showCompletion();
+          return;
+        }
+
+        selectedWords = [];
+        const sentence = currentSentences[currentSentenceIndex];
+        const words = sentence.split(" ");
+
+        // Create chunks of words based on difficulty
+        scrambledWordsArray = createWordChunks(words, wordsPerPick);
+
+        renderScrambledWords();
+        renderConstructedSentence();
+        updateProgress();
+      }
+
+      // Create word chunks based on words per pick
+      function createWordChunks(words, chunkSize) {
+        const chunks = [];
+        for (let i = 0; i < words.length; i += chunkSize) {
+          const chunk = words.slice(i, Math.min(i + chunkSize, words.length));
+          chunks.push(chunk.join(" "));
+        }
+        // Scramble the chunks
+        return scrambleArray(chunks);
+      }
+
+      // Render scrambled words
+      function renderScrambledWords() {
+        scrambledWords.innerHTML = "";
+        scrambledWordsArray.forEach((wordChunk, index) => {
+          const button = document.createElement("button");
+          button.className = "word-button bg-gradient-to-r from-blue-400 to-purple-500 hover:from-blue-500 hover:to-purple-600 text-white px-6 py-3 rounded-full font-bold text-lg shadow-md";
+          button.textContent = wordChunk;
+          button.onclick = () => selectWord(index);
+          scrambledWords.appendChild(button);
+        });
+      }
+
+      // Select a word chunk
+      function selectWord(index) {
+        const wordChunk = scrambledWordsArray[index];
+        selectedWords.push(wordChunk);
+        scrambledWordsArray.splice(index, 1);
+
+        renderScrambledWords();
+        renderConstructedSentence();
+      }
+
+      // Render constructed sentence
+      function renderConstructedSentence() {
+        constructedSentence.innerHTML = "";
+
+        if (selectedWords.length === 0) {
+          const placeholder = document.createElement("p");
+          placeholder.className = "text-gray-400 italic w-full text-center";
+          placeholder.textContent = wordsPerPick === 1 ? "Select word chunks in order..." : `Select ${wordsPerPick}-word chunks in order...`;
+          constructedSentence.appendChild(placeholder);
+        } else {
+          selectedWords.forEach((wordChunk, index) => {
+            const chunkElement = document.createElement("span");
+            chunkElement.className = "constructed-word bg-green-100 text-green-800 px-4 py-2 rounded-full font-semibold cursor-pointer hover:bg-green-200 transition border-2 border-green-300";
+            chunkElement.textContent = wordChunk;
+            chunkElement.onclick = () => removeWord(index);
+            constructedSentence.appendChild(chunkElement);
+          });
+        }
+      }
+
+      // Remove word chunk from construction
+      function removeWord(index) {
+        const wordChunk = selectedWords[index];
+        selectedWords.splice(index, 1);
+        scrambledWordsArray.push(wordChunk);
+
+        renderScrambledWords();
+        renderConstructedSentence();
+      }
+
+      // Check answer
+      function checkAnswer() {
+        if (selectedWords.length === 0) {
+          alert("Please construct a sentence first!");
+          return;
+        }
+
+        const userSentence = selectedWords.join(" ");
+        const correctSentence = currentSentences[currentSentenceIndex];
+
+        if (userSentence === correctSentence) {
+          // Correct answer
+          streak++;
+          score += 100 + streak * 10;
+
+          createConfetti();
+
+          setTimeout(() => {
+            currentSentenceIndex++;
+            loadSentence();
+          }, 1000);
+        } else {
+          // Incorrect answer
+          streak = 0;
+          alert("Incorrect! Try again.");
+        }
+
+        updateScore();
+      }
+
+      // Reset current sentence
+      function resetSentence() {
+        selectedWords = [];
+        const sentence = currentSentences[currentSentenceIndex];
+        const words = sentence.split(" ");
+        scrambledWordsArray = createWordChunks(words, wordsPerPick);
+
+        renderScrambledWords();
+        renderConstructedSentence();
+      }
+
+      // Update score display
+      function updateScore() {
+        scoreDisplay.textContent = score;
+        streakDisplay.textContent = streak;
+      }
+
+      // Update progress
+      function updateProgress() {
+        currentSentenceDisplay.textContent = currentSentenceIndex + 1;
+        const progress = ((currentSentenceIndex + 1) / currentSentences.length) * 100;
+        progressBar.style.width = progress + "%";
+      }
+
+      // Show completion screen
+      function showCompletion() {
+        gameArea.classList.add("hidden");
+        completionScreen.classList.remove("hidden");
+        finalScore.textContent = score;
+        createConfetti();
+      }
+
+      // Create confetti effect
+      function createConfetti() {
+        const colors = ["#f093fb", "#f5576c", "#4facfe", "#00f2fe", "#43e97b", "#38f9d7"];
+        for (let i = 0; i < 50; i++) {
+          const confetti = document.createElement("div");
+          confetti.className = "confetti";
+          confetti.style.left = Math.random() * 100 + "%";
+          confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+          confetti.style.animationDelay = Math.random() * 2 + "s";
+          document.body.appendChild(confetti);
+
+          setTimeout(() => confetti.remove(), 3000);
+        }
+      }
+
+      // Back to topics
+      function backToTopics() {
+        gameArea.classList.add("hidden");
+        topicSelection.classList.remove("hidden");
+      }
+
+      // Restart game
+      function restart() {
+        completionScreen.classList.add("hidden");
+        topicSelection.classList.remove("hidden");
+      }
+
+      // Event Listeners
+      resetButton.onclick = resetSentence;
+      checkButton.onclick = checkAnswer;
+      backButton.onclick = backToTopics;
+      restartButton.onclick = restart;
+
+      // Initialize
+      initializeTopics();
+      initializeDifficultyButtons();
+    </script>
+  </body>
+</html>
